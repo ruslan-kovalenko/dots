@@ -4,12 +4,15 @@ module.exports = {
     node: true
   },
   'extends': [
-    'plugin:vue/essential',
-    'eslint:recommended',
-    '@vue/typescript/recommended'
+    // 'plugin:vue/essential',
+    // 'eslint:recommended',
+    // '@vue/typescript/recommended'
+    'plugin:vue/recommended',
   ],
   parserOptions: {
-    ecmaVersion: 2020
+    // ecmaVersion: 2020
+    parser: '@typescript-eslint/parser',
+    sourceType: 'module',
   },
   rules: {
     'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
