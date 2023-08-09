@@ -32,7 +32,7 @@ class SocketioService {
           userId: storageUserId
         }
       } : {};
-console.log('1')
+
       this.socket = io(process.env.VUE_APP_SOCKET_ENDPOINT, userPayload);
 
       this.socket.on('register-player', (player: Player) => {
