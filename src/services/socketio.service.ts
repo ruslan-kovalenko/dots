@@ -33,9 +33,10 @@ class SocketioService {
         }
       } : {};
 
-      this.socket = io(process.env.VUE_APP_SOCKET_ENDPOINT, userPayload);
-
+      this.socket = io(import.meta.env.VITE_SOCKET_ENDPOINT, userPayload);
       this.socket.on('register-player', (player: Player) => {
+      console.log('33333333333333 player: ', player);
+        
         this.playerObserver = player;
         localStorage.setItem('userId', player.id.toString());
       })
