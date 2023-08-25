@@ -4,12 +4,10 @@ import Node from '@/types/node';
 import NextNode from './next-node';
 import LeftUpSubstrategy from './leftup-substrategy';
 import UpRightSubstrategy from './upright-substrategy';
+import RightDownSubstrategy from './rightdown-substrategy';
+import LeftDownSubstrategy from './leftdown-substrategy';
 
 class InitialSubstrategy implements ISubstrategy {
-  properNodeFromMultiple(nodeCandidates: NextNode[]): NextNode {
-    return {} as NextNode;
-  };
-
   nextNodeFilterSearch(prevNeighbor: Node, storageNodes: Node[]): NextNode[] {
     const { x: prevNeightborX, y: prevNeighborY } = prevNeighbor;
     let result: NextNode[] = [];

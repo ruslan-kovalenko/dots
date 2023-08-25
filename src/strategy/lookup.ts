@@ -10,6 +10,7 @@ import InitialSubstrategy from './substrategy/initial-substrategy';
 import NextNode from './substrategy/next-node';
 import LeftUpSubstrategy from './substrategy/leftup-substrategy';
 import UpRightSubstrategy from './substrategy/upright-substrategy';
+import RightDownSubstrategy from './substrategy/rightdown-substrategy';
 
 class Lookup {
   static starter(chain: Chain, playerStorage: Node[]): void {
@@ -19,10 +20,9 @@ class Lookup {
     if (!nextNodes.length) return;
 
     const { node, substrategy } = nextNodes[0];
-
     const generalDirection = substrategy instanceof LeftUpSubstrategy ? 
       GeneralDirection.Counterclockwise : GeneralDirection.Clockwise;
-
+      chain.push(node);
     this.strategyRunner(chain, playerStorage, node, substrategy, generalDirection);
   }
 

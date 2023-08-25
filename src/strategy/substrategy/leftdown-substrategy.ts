@@ -11,12 +11,6 @@ import RightDownSubstrategy from './rightdown-substrategy';
 import { GeneralDirection } from '../lookup-direction';
 
 class LeftDownSubstrategy implements ISubstrategy {
-  properNodeFromMultiple(nodeCandidates: NextNode[]): NextNode {
-    return nodeCandidates.reduce((result, current) => {
-      return result.node.y > current.node.y ? result : current; // recheck
-    });
-  }
-
   nextNodeFilterSearch(prevNeighbor: Node, storageNodes: Node[], generalDirection: GeneralDirection): NextNode[] {
     const { x: prevNeightborX, y: prevNeighborY } = prevNeighbor;
     let result: NextNode[] = [];

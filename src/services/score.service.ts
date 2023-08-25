@@ -74,6 +74,10 @@ class ScoreService {
     const rivalsInTrap: Node[] = [];
     rivalStorage.forEach((rivalNode: Node) => {
       if (!rivalNode.coordinate) return;
+      
+      const isNodeAlreadyTrapped = CoordinateService.getTrappedByCoordinates(rivalNode);
+
+      if (isNodeAlreadyTrapped) return;
 
       const isRivalNodeTrapped = ctx.isPointInPath(path, rivalNode.coordinate.offsetX, rivalNode.coordinate.offsetY);
 
@@ -107,7 +111,7 @@ class ScoreService {
 
       result += this.getSurroundedRivalNodesAmount(chain, rivalStorage, ctx);
       chains.push(JSON.parse(JSON.stringify(chain)));
-      
+
       NodeStorage.flagChainNodes(chain);
       NodeStorage.resetNexts();
     });
