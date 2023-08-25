@@ -1,6 +1,9 @@
 <template>
   <div class="container">
-    <div style="position: relative; left: 0; top: 0;">
+    <div
+      id="canvas-container"
+      style="position: relative; left: 0; top: 0;"
+    >
       <canvas
         id="game-level"
         ref="game-level"
@@ -116,10 +119,11 @@ export default Vue.extend({
   },
   created(): void {
     this.socketServiceInstance.setupSocketConnection();
-    document.addEventListener('mousemove', this.handleMouseMove);
-    document.addEventListener('click', this.handleClick);
   },
   mounted(): void {
+    this.$refs['temp-level'].addEventListener('mousemove', this.handleMouseMove, false);
+    this.$refs['temp-level'].addEventListener('click', this.handleClick, false);
+    
     this.drawGrid();
   },
   beforeDestroy() {
