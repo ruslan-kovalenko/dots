@@ -8,7 +8,7 @@ class ChainService {
   static getRivalChains(chains: Chain[], activePlayer: Player, rivalPlayer: Player): Chain[] {
     return chains.filter((chain: Chain) => chain.activePlayer.id === rivalPlayer!.id);
   }
-  
+
   static isChainDrawn(id: number) {
     return this.drawnChainIds.some(id_ => id_ === id);
   }

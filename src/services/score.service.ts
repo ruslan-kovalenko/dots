@@ -56,7 +56,7 @@ class ScoreService {
 
       current = current.next;
     }
-    
+
     const trapped = this.detectTrappedRivalsAmount(path, ctx, rivalStorage);
 
     if (trapped > 0) {
@@ -115,11 +115,12 @@ class ScoreService {
       NodeStorage.flagChainNodes(chain);
       NodeStorage.resetNexts();
     });
+
     this.userScore += result;
 
     return [this.userScore, chains];
   }
-  
+
   static getWinner(trappedByActive: number, trappedByRival: number): string | null {
     const allCoordinates = CoordinateService.coordinates.length;
     

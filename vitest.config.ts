@@ -7,10 +7,13 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: [{ find: "@", replacement: resolve(__dirname, "./src") }]
-  },  
+  },
+  deps: {
+    inline: ['vitest-canvas-mock'],
+  },
   test: {
     globals: true,
-    environment: 'happy-dom',
+    environment: 'jsdom',
     threads: false,
     environmentOptions: {
       jsdom: {
