@@ -9,7 +9,18 @@ import CoordinateService from './coordinate.service';
 
 class ScoreService {
   static userScore: number = 0;
+  static scoreUpdate: ScoreUpdate | null = null; 
+  static scoreUpdateObserver: Function;
 
+  static setScoreUpdate(scoreUpdate): void {
+    this.scoreUpdate = scoreUpdate;
+    this.scoreUpdateObserver(scoreUpdate);
+  }
+
+  static addScoreUpdateObserver(observer: Function): void {
+    this.scoreUpdateObserver = observer;
+  }
+  
   static getPlayerScore(player: Player, ctx: CanvasRenderingContext2D, isRival: boolean = false): [number, Chain[]] {
     const playerStorage = NodeStorage.getActivePlayerUntrappedNodes(player);
     const playerFreeNodes = NodeStorage.getActivePlayerFreeNodes(player);

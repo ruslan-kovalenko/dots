@@ -6,22 +6,22 @@ import Coordinate from '@/types/Coordinate';
 import Player from '@/players/player';
 import ScoreUpdate from '@/types/score-update';
 import CoordinateService from './coordinate.service';
+import PlayerService from './player.service';
+import ScoreService from './score.service';
 
 class SocketioService {
-  socket: Socket | null;
-  playerObserver: Player | null;
-  rivalObserver: Player | null;
-  nodeStorageObserver: Node[];
-  newNodeObserver: Node | null;
-  scoreUpdateObserver: ScoreUpdate | null;
+  private static instance: SocketioService;
+  private socket: Socket | null = null;
 
-  constructor() {
+  private constructor() {
     this.socket = null;
-    this.playerObserver = null;
-    this.rivalObserver = null;
-    this.nodeStorageObserver = [];
-    this.newNodeObserver = null;
-    this.scoreUpdateObserver = null;
+  }
+
+  static getInstance(): SocketioService {
+    if (!SocketioService.instance) {
+      SocketioService.instance = new SocketioService();
+    }
+    return SocketioService.instance;
   }
 
   setupSocketConnection() {
@@ -35,25 +35,22 @@ class SocketioService {
 
       this.socket = io(import.meta.env.VITE_SOCKET_ENDPOINT, userPayload);
       this.socket.on('register-player', (player: Player) => {
-        this.playerObserver = player;
-        localStorage.setItem('userId', player.id.toString());
+        PlayerService.setPlayer(player);
       })
 
       this.socket.on('users', (users: Player[]) => {
-        if (!this.playerObserver) return;
-
-        this.rivalObserver = users.find(user => user.id !== this.playerObserver?.id) || null;
+        PlayerService.setRival(users);
       })
 
       this.socket.on('get-node-storage', (scoreUpdate: ScoreUpdate) => {
         const { storage } = scoreUpdate;
 
         NodeStorage.setStorage(storage);
-        this.scoreUpdateObserver = scoreUpdate;
+        ScoreService.setScoreUpdate(scoreUpdate);
       })
 
       this.socket.on('get-new-node', (node: Node) => {
-        this.newNodeObserver = node;
+        NodeStorage.setNewNode(node);
       })
     }
   }

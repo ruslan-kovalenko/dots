@@ -55,6 +55,7 @@ import ScoreService from './services/score.service';
 import ScoreUpdate from './types/score-update';
 import ChainService from './services/chain.service';
 import CoordinateService from './services/coordinate.service';
+import PlayerService from './services/player.service';
 import Chain from './types/chain';
 
 export default Vue.extend({
@@ -64,7 +65,7 @@ export default Vue.extend({
       width: constants.CANVAS_WIDTH,
       height: constants.CANVAS_HEIGHT,
       coordinates: [] as Coordinate[],
-      socketServiceInstance: new SocketioService(),
+      socketServiceInstance: SocketioService.getInstance(),
       activePlayer: null as Player | null,
       rivalPlayer: null as Player | null,
       nodeStorage: [] as Node[],
@@ -73,63 +74,55 @@ export default Vue.extend({
       winnerLabel: '',
     }
   },
-  watch: {
-    'socketServiceInstance.playerObserver': {
-      handler(player: Player) {
-        this.activePlayer = player;
-      },
-    },
-    'socketServiceInstance.rivalObserver': {
-      handler(rival: Player) {
-        this.rivalPlayer = rival;
-      },
-    },
-    'socketServiceInstance.newNodeObserver': {
-      handler(node: Node) {
-        this.handleReceivedNewNode(node);
-
-        if (node.player.id !== this.activePlayer?.id) return;
-
-        const gameCanvas = this.$refs['game-level'] as HTMLCanvasElement;
-        const ctx = gameCanvas.getContext('2d');
-
-        if (!this.activePlayer || !this.rivalPlayer || !ctx) return;
-
-        const [currentPlayerScore, chains] = ScoreService.getPlayerScore(this.activePlayer, ctx);
-
-        this.socketServiceInstance.sendPlayerStorage(
-          this.activePlayer,
-          currentPlayerScore,
-          chains
-        );
-      },
-      deep: true
-    },
-    'socketServiceInstance.scoreUpdateObserver': {
-      handler(scoreUpdate: ScoreUpdate) {
-        const { playerOneScore, playerTwoScore } = scoreUpdate;
-        this.activePlayerScore = playerOneScore;
-        this.rivalPlayerScore = playerTwoScore;
-
-        this.drawChainsForOwnTrappedNodes(scoreUpdate);
-        this.endgameCheck();
-      },
-      deep: true
-    }
-  },
   created(): void {
     this.socketServiceInstance.setupSocketConnection();
+    NodeStorage.addNewNodeObserver(this.newNodeHandler);
+    PlayerService.addPlayerObserver(this.activePlayerHandler);
+    PlayerService.addRivalObserver(this.rivalPlayerHandler);
+    ScoreService.addScoreUpdateObserver(this.scoreUpdateHandler);
   },
   mounted(): void {
-    this.$refs['temp-level'].addEventListener('mousemove', this.handleMouseMove, false);
-    this.$refs['temp-level'].addEventListener('click', this.handleClick, false);
-    
+    (this.$refs['temp-level'] as HTMLCanvasElement).addEventListener('mousemove', this.handleMouseMove, false);
+    (this.$refs['temp-level'] as HTMLCanvasElement).addEventListener('click', this.handleClick, false);
+
     this.drawGrid();
   },
   beforeDestroy() {
     this.socketServiceInstance.disconnect();
   },
   methods: {
+    activePlayerHandler(player: Player): void {
+      this.activePlayer = player;
+    },
+    rivalPlayerHandler(rival: Player): void {
+      this.rivalPlayer = rival;
+    },
+    scoreUpdateHandler(scoreUpdate: ScoreUpdate): void {
+      const { playerOneScore, playerTwoScore } = scoreUpdate;
+      this.activePlayerScore = playerOneScore;
+      this.rivalPlayerScore = playerTwoScore;
+
+      this.drawChainsForOwnTrappedNodes(scoreUpdate);
+      this.endgameCheck();
+    },
+    newNodeHandler(node: Node): void {
+      this.handleReceivedNewNode(node);
+
+      if (node.player.id !== this.activePlayer?.id) return;
+
+      const gameCanvas = this.$refs['game-level'] as HTMLCanvasElement;
+      const ctx = gameCanvas.getContext('2d');
+
+      if (!this.activePlayer || !this.rivalPlayer || !ctx) return;
+
+      const [currentPlayerScore, chains] = ScoreService.getPlayerScore(this.activePlayer, ctx);
+
+      this.socketServiceInstance.sendPlayerStorage(
+        this.activePlayer,
+        currentPlayerScore,
+        chains
+      );
+    },
     endgameCheck(): void {
       if (!this.activePlayer || !this.rivalPlayer) return;
 

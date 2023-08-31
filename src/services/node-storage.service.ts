@@ -4,9 +4,11 @@ import Chain from '@/types/chain';
 import Node from '@/types/node';
 
 class NodeStorage {
-  public static storage: Node[];
+  static storage: Node[];
+  static newNode: Node | null = null;
+  static newNodeObserver: Function;
 
-  public static add(coordinates: Coordinate, player: Player): Node | undefined {
+  static add(coordinates: Coordinate, player: Player): Node | undefined {
     if (!this.storage) this.storage = [];
 
     const { x, y } = coordinates;
@@ -19,44 +21,53 @@ class NodeStorage {
     this.storage.push(node);
     return node;
   }
+  
+  static setNewNode(newNode: Node): void {
+    this.newNode = newNode;
+    this.newNodeObserver(newNode);
+  }
 
-  public static setStorage(storage: Node[]): Node[] {
+  static addNewNodeObserver(observer: Function): void {
+    this.newNodeObserver = observer;
+  }
+
+  static setStorage(storage: Node[]): Node[] {
     this.storage = storage;
 
     return this.storage;
   }
 
-  public static getActivePlayerNodes(player: Player): Node[] {
+  static getActivePlayerNodes(player: Player): Node[] {
     if (!this.storage || !this.storage.length) return [];
 
     return this.storage.filter(node => node.player.id === player.id);
   }
   
-  public static getActivePlayerUntrappedNodes(player: Player): Node[] {
+  static getActivePlayerUntrappedNodes(player: Player): Node[] {
     if (!this.storage || !this.storage.length) return [];
 
     return this.storage.filter(node => node.player.id === player.id && !node.isTrapped);
   }
   
-  public static getActivePlayerFreeNodes(player: Player): Node[] {
+  static getActivePlayerFreeNodes(player: Player): Node[] {
     if (!this.storage || !this.storage.length) return [];
 
     return this.storage.filter(node => node.player.id === player.id && !node.partOfChain);
   }
 
-  public static getRivalNodes(player: Player): Node[] {
+  static getRivalNodes(player: Player): Node[] {
     if (!this.storage.length) return [];
 
     return this.storage.filter(node => node.player.id !== player.id);
   }
 
-  public static hasCompleteChains(player: Player): boolean {
+  static hasCompleteChains(player: Player): boolean {
     if (!this.storage.length) return false;
 
     return this.storage.some(node => node.player === node.player && node.partOfChain);
   }
   
-  public static flagChainNodes(chain: Chain) {
+  static flagChainNodes(chain: Chain) {
     let current = chain.head;
 
     while (current) {
@@ -65,7 +76,7 @@ class NodeStorage {
     }
   }
   
-  public static resetNexts(): void {
+  static resetNexts(): void {
     this.storage.forEach((node: Node) => {
       node.next = null;
     });
