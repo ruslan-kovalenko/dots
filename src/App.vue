@@ -74,7 +74,7 @@ export default Vue.extend({
       winnerLabel: '',
     }
   },
-  created(): void {
+  created(): void {    
     this.socketServiceInstance.setupSocketConnection();
     NodeStorage.addNewNodeObserver(this.newNodeHandler);
     PlayerService.addPlayerObserver(this.activePlayerHandler);
