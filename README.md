@@ -2,34 +2,18 @@
 
 ## Project setup
 
+From the repository root:
+
 ```
 npm install
 ```
 
-### Compiles and hot-reloads for development
+### Start the client and the server
 
 ```
-npm start
+npm run dev
 ```
 
-### Compiles and minifies for production
+The player-facing application is at http://localhost:8080. The game server listens on port 3000.
 
-```
-npm run build
-```
-
-### Run your unit tests
-
-```
-npm run test:unit
-```
-
-### Lints and fixes files
-
-```
-npm run lint
-```
-
-### Customize configuration
-
-See [Configuration Reference](https://cli.vuejs.org/config/).
+Stop both with Ctrl+C.

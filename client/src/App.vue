@@ -57,6 +57,7 @@ import ChainService from './services/chain.service';
 import CoordinateService from './services/coordinate.service';
 import PlayerService from './services/player.service';
 import Chain from './types/chain';
+import { gapi } from "gapi-script";
 
 export default Vue.extend({
   name: 'Dots',
