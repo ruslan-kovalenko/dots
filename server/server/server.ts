@@ -1,7 +1,6 @@
 const express = require("express");
 const http = require("http");
 import SocketServer from "./socket";
-import completion from "./ai";
 
 const app = express();
 const server = http.createServer(app);

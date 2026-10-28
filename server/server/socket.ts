@@ -7,7 +7,6 @@ import UserService from "../services/user.service";
 import ChainService from "../services/chain.service";
 import ScoreService from "../services/score.service";
 import ScoreUpdate from "../types/score-update";
-import AiSecondPlayer from "../server/ai";
 
 class SocketServer {
   private static instance: SocketServer | null = null;
