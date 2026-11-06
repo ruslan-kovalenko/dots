@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "strict": false,
+    "module": "commonjs",
+    "target": "es2020",
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "types": ["jest", "node"]
+  }
+}

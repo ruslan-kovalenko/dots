@@ -1,0 +1,11 @@
+export { buildIntersections } from "./board";
+export { default as Lookup } from "./strategy/lookup";
+export { default as ScoreService } from "./services/score.service";
+export { default as NodeStorage } from "./services/node-storage.service";
+export { default as CoordinateService } from "./services/coordinate.service";
+export { default as ChainService } from "./services/chain.service";
+export { default as Match } from "./match";
+export type { GameState, Area, Phase, Order, GameResult } from "./match";
+export { PLAYER_COLOR } from "./players/player";
+export type { default as Player } from "./players/player";
+export type { default as Node } from "./types/node";

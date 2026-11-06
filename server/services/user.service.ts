@@ -1,24 +1,29 @@
-import Player from '../types/player';
+import Player, { PLAYER_COLOR } from "../../rules/src/players/player";
 
 class UserService {
   static users: Player[] = [];
 
-  static addUser(socketId: string, localStorageId: string): [Player, Player[]] {
-    let user: Player | null = null;
-    if (this.users.length < 2) {
-      user = { 
-        id: socketId,
-        order: !this.users.length ? 1 : 2,
-        color: !this.users.length ? 'rgba(19, 97, 226, 1)' : 'rgba(228, 23, 71, 1)' 
-      };
-  
-      this.users.push(user);
-    }
-    else {
-      user = this.users.find((user: Player) => user.id === localStorageId);
+  static addUser(socketId: string, storedId: string): [Player | undefined, Player[]] {
+    const existing = storedId ? this.users.find((user) => user.id === storedId) : undefined;
+    if (existing) {
+      existing.id = socketId;
+      return [existing, this.users];
     }
 
+    if (this.users.length >= 2) return [undefined, this.users];
+
+    const order = this.users.length === 0 ? 1 : 2;
+    const user: Player = {
+      id: socketId,
+      order,
+      color: PLAYER_COLOR[order],
+    };
+    this.users.push(user);
     return [user, this.users];
+  }
+
+  static orderOf(socketId: string): 1 | 2 | undefined {
+    return this.users.find((user) => user.id === socketId)?.order;
   }
 }
 

@@ -1,13 +1,6 @@
-import Chain from '@/types/chain';
-import { io, Socket } from 'socket.io-client';
-import NodeStorage from '@/services/node-storage.service';
-import Node from '@/types/node';
-import Coordinate from '@/types/Coordinate';
-import Player from '@/players/player';
-import ScoreUpdate from '@/types/score-update';
-import CoordinateService from './coordinate.service';
-import PlayerService from './player.service';
-import ScoreService from './score.service';
+import { io, Socket } from "socket.io-client";
+import type { GameState, Player } from "rules";
+import PlayerService from "./player.service";
 
 class SocketioService {
   private static instance: SocketioService;
@@ -24,55 +17,42 @@ class SocketioService {
     return SocketioService.instance;
   }
 
-  setupSocketConnection() {
-    if (!this.socket) {
-      const storageUserId = localStorage.getItem('userId');
-      const userPayload = storageUserId ? {
-        query: {
-          userId: storageUserId
+  setupSocketConnection(onState: (state: GameState) => void): void {
+    if (this.socket) return;
+
+    const storageUserId = sessionStorage.getItem("userId");
+    const userPayload = storageUserId
+      ? {
+          query: {
+            userId: storageUserId,
+          },
         }
-      } : {};
+      : {};
 
-      this.socket = io(import.meta.env.VITE_SOCKET_ENDPOINT, userPayload);
-      this.socket.on('register-player', (player: Player) => {
-        PlayerService.setPlayer(player);
-      })
-
-      this.socket.on('users', (users: Player[]) => {
-        PlayerService.setRival(users);
-      })
-
-      this.socket.on('get-node-storage', (scoreUpdate: ScoreUpdate) => {
-        const { storage } = scoreUpdate;
-
-        NodeStorage.setStorage(storage);
-        ScoreService.setScoreUpdate(scoreUpdate);
-      })
-
-      this.socket.on('get-new-node', (node: Node) => {
-        NodeStorage.setNewNode(node);
-      })
-    }
+    this.socket = io(import.meta.env.VITE_SOCKET_ENDPOINT, userPayload);
+    this.socket.on("register-player", (player: Player) => {
+      PlayerService.setPlayer(player);
+    });
+    this.socket.on("users", (users: Player[]) => {
+      PlayerService.setRival(users);
+    });
+    this.socket.on("get-node-storage", (state: GameState) => {
+      onState(state);
+    });
   }
 
-  disconnect() {
-    if (!this.socket) return; 
-
-    this.socket.disconnect();
-  }
-
-  sendPlayerStorage(player: Player, score: number, chains: Chain[]) {
-    const storage = NodeStorage.getActivePlayerNodes(player);
-
-    if (!storage.length || !this.socket) return;
-
-    this.socket.emit('send-player-storage', { storage, score, chains });
-  }
-  
-  sendNewNode(node: Node) {
+  disconnect(): void {
     if (!this.socket) return;
+    this.socket.disconnect();
+    this.socket = null;
+  }
 
-    this.socket.emit('send-new-node', node);
+  sendNewNode(x: number, y: number): void {
+    this.socket?.emit("send-new-node", { x, y });
+  }
+
+  sendEndGame(): void {
+    this.socket?.emit("send-end-game");
   }
 }
 

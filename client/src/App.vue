@@ -1,304 +1,174 @@
 <template>
   <div class="container">
-    <div
-      id="canvas-container"
-      style="position: relative; left: 0; top: 0;"
-    >
+    <div class="board">
       <canvas
         id="game-level"
-        ref="game-level"
+        ref="gameLevel"
         class="gridCanvas"
         :width="width"
         :height="height"
-        style="position: absolute; left: 0; top: 0; z-index: 0;"
       />
       <canvas
         id="temp-level"
-        ref="temp-level"
-        class="gridCanvas"
+        ref="tempLevel"
+        class="gridCanvas overlay"
         :width="width"
         :height="height"
-        style="position: absolute; left: 0; top: 0; z-index: 1;"
+        @mousemove="handleMouseMove"
+        @click="handleClick"
       />
     </div>
     <div class="score">
       <div
-        v-if="winnerLabel"
+        class="player"
+        :class="{ turn: activeOrder === 1 }"
+      >
+        <span class="swatch red" />
+        <span>Player 1</span>
+        <span>{{ scores[1] }}</span>
+      </div>
+      <div
+        class="player"
+        :class="{ turn: activeOrder === 2 }"
+      >
+        <span class="swatch blue" />
+        <span>Player 2</span>
+        <span>{{ scores[2] }}</span>
+      </div>
+      <div
+        v-if="winnerText"
         class="winner-label"
       >
-        {{ winnerLabel }}
+        {{ winnerText }}
       </div>
-      <template v-else>
-        <div class="player">
-          <span>Player1</span>
-          <span> {{ activePlayerScore }} </span>
-        </div>
-        <div class="player">
-          <span>Player2</span>
-          <span> {{ rivalPlayerScore }} </span>
-        </div>
-      </template>
+      <p
+        v-if="endStatus.note"
+        class="end-note"
+      >
+        {{ endStatus.note }}
+      </p>
+      <button
+        v-if="endStatus.canConfirm"
+        class="end-game"
+        type="button"
+        @click="endGame"
+      >
+        End game
+      </button>
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import Vue from 'vue';
-import Coordinate from '@/types/coordinate';
-import Circle from '@/types/circle';
-import Player from '@/players/player';
-import Node from '@/types/node';
-import constants from './types/constants';
-import SocketioService from './services/socketio.service';
-import NodeStorage from './services/node-storage.service';
-import ScoreService from './services/score.service';
-import ScoreUpdate from './types/score-update';
-import ChainService from './services/chain.service';
-import CoordinateService from './services/coordinate.service';
-import PlayerService from './services/player.service';
-import Chain from './types/chain';
-import { gapi } from "gapi-script";
+import { defineComponent } from "vue";
+import { buildIntersections } from "rules";
+import type { GameState, Player } from "rules";
+import { eventToBitmap, nearestIntersection } from "./board-point";
+import { endRequestView } from "./end-request";
+import { paintGame, PLAYER_COLORS } from "./paint-game";
+import { resultLabel } from "./result-label";
+import SocketioService from "./services/socketio.service";
+import PlayerService from "./services/player.service";
 
-export default Vue.extend({
-  name: 'Dots',
+export default defineComponent({
+  name: "Dots",
   data() {
     return {
-      width: constants.CANVAS_WIDTH,
-      height: constants.CANVAS_HEIGHT,
-      coordinates: [] as Coordinate[],
+      width: 800,
+      height: 600,
+      coordinates: buildIntersections(),
       socketServiceInstance: SocketioService.getInstance(),
       activePlayer: null as Player | null,
-      rivalPlayer: null as Player | null,
-      nodeStorage: [] as Node[],
-      activePlayerScore: 0 as number,
-      rivalPlayerScore: 0 as number,
-      winnerLabel: '',
-    }
+      phase: "waiting" as GameState["phase"],
+      activeOrder: null as GameState["activeOrder"],
+      scores: { 1: 0, 2: 0 } as GameState["scores"],
+      endRequests: [] as GameState["endRequests"],
+      areas: [] as GameState["areas"],
+      dots: [] as GameState["storage"],
+      winnerText: "",
+    };
   },
-  created(): void {    
-    this.socketServiceInstance.setupSocketConnection();
-    NodeStorage.addNewNodeObserver(this.newNodeHandler);
+  created(): void {
     PlayerService.addPlayerObserver(this.activePlayerHandler);
-    PlayerService.addRivalObserver(this.rivalPlayerHandler);
-    ScoreService.addScoreUpdateObserver(this.scoreUpdateHandler);
+    this.socketServiceInstance.setupSocketConnection(this.stateHandler);
   },
   mounted(): void {
-    (this.$refs['temp-level'] as HTMLCanvasElement).addEventListener('mousemove', this.handleMouseMove, false);
-    (this.$refs['temp-level'] as HTMLCanvasElement).addEventListener('click', this.handleClick, false);
-
     this.drawGrid();
   },
-  beforeDestroy() {
+  beforeUnmount(): void {
     this.socketServiceInstance.disconnect();
+  },
+  computed: {
+    endStatus(): { note: string; canConfirm: boolean } {
+      return endRequestView(this.phase, this.endRequests, this.activePlayer?.order ?? null);
+    },
   },
   methods: {
     activePlayerHandler(player: Player): void {
       this.activePlayer = player;
     },
-    rivalPlayerHandler(rival: Player): void {
-      this.rivalPlayer = rival;
-    },
-    scoreUpdateHandler(scoreUpdate: ScoreUpdate): void {
-      const { playerOneScore, playerTwoScore } = scoreUpdate;
-      this.activePlayerScore = playerOneScore;
-      this.rivalPlayerScore = playerTwoScore;
-
-      this.drawChainsForOwnTrappedNodes(scoreUpdate);
-      this.endgameCheck();
-    },
-    newNodeHandler(node: Node): void {
-      this.handleReceivedNewNode(node);
-
-      if (node.player.id !== this.activePlayer?.id) return;
-
-      const gameCanvas = this.$refs['game-level'] as HTMLCanvasElement;
-      const ctx = gameCanvas.getContext('2d');
-
-      if (!this.activePlayer || !this.rivalPlayer || !ctx) return;
-
-      const [currentPlayerScore, chains] = ScoreService.getPlayerScore(this.activePlayer, ctx);
-
-      this.socketServiceInstance.sendPlayerStorage(
-        this.activePlayer,
-        currentPlayerScore,
-        chains
-      );
-    },
-    endgameCheck(): void {
-      if (!this.activePlayer || !this.rivalPlayer) return;
-
-      const trappedByActive = CoordinateService.trappedBy(this.activePlayer).length;
-      const trappedByRival = CoordinateService.trappedBy(this.rivalPlayer).length;
-      
-      const winnerLabel = ScoreService.getWinner(trappedByActive, trappedByRival);
-      
-      if (typeof winnerLabel === 'string') {
-        this.winnerLabel = winnerLabel;
-      }
-    },
-    drawChainsForOwnTrappedNodes(scoreUpdate: ScoreUpdate): void {
-      const { chains } = scoreUpdate;
-
-      if (!chains.length || !this.activePlayer || !this.rivalPlayer) return;
-
-      const rivalChains = ChainService.getRivalChains(chains, this.activePlayer, this.rivalPlayer);
-      const myNodes = NodeStorage.getActivePlayerNodes(this.activePlayer);
-      const gameCanvas = this.$refs['game-level'] as HTMLCanvasElement;
-      const ctx = gameCanvas.getContext('2d');
-
-      rivalChains.forEach((chain: Chain) => {
-        if (chain.activePlayer.id === this.activePlayer?.id) return;
-
-        ScoreService.getSurroundedRivalNodesAmount(chain, myNodes, ctx!);
-      });
-    },
-    handleReceivedNewNode(node: Node): void {
-      const gameCanvas = this.$refs['game-level'] as HTMLCanvasElement;
-      const ctx = gameCanvas.getContext('2d');
-
-      if (!gameCanvas || !ctx || !this.activePlayer || !node.coordinate) return;
-
-      this.drawCircle({
-        context: ctx,
-        radius: 10,
-        fill: node.player.color,
-        node: node.coordinate
-      });
+    stateHandler(state: GameState): void {
+      this.phase = state.phase;
+      this.activeOrder = state.activeOrder;
+      this.scores = state.scores;
+      this.endRequests = state.endRequests;
+      this.areas = state.areas;
+      this.dots = state.storage;
+      this.winnerText = resultLabel(state.result);
+      this.draw();
     },
     drawGrid(): void {
-      let ctx = (this.$refs['game-level'] as HTMLCanvasElement).getContext('2d');
-
+      this.coordinates = buildIntersections();
+      this.draw();
+    },
+    getClosestNodeCoordinates(bitmapX: number, bitmapY: number) {
+      return nearestIntersection(bitmapX, bitmapY, this.coordinates);
+    },
+    draw(): void {
+      const canvas = this.$refs.gameLevel as HTMLCanvasElement | undefined;
+      const ctx = canvas?.getContext("2d");
       if (!ctx) return;
-
-      let s = constants.PIXEL_GAP;
-      let nX = Math.floor(this.width / s) - 2;
-      let nY = Math.floor(this.height / s) - 2;
-      let pX = this.width - nX * s;
-      let pY = this.height - nY * s;
-      
-      let pL = Math.ceil(pX / 2) - 0.5;
-      let pT = Math.ceil(pY / 2) - 0.5;
-      let pR = this.width - nX * s - pL;
-      let pB = this.height - nY * s - pT;
-
-      ctx.strokeStyle = 'lightgrey';
-      ctx.beginPath();
-
-      const xArray: number[] = [];
-      const yArray: number[] = [];
-      for (let x = pL; x <= this.width - pR; x += s) {
-          xArray.push(x);
-          ctx.moveTo(x, pT)
-          ctx.lineTo(x, this.height - pB)
-      }
-      for (let y = pT; y <= this.height - pB; y += s) {
-          yArray.push(y);
-          ctx.moveTo(pL, y)
-          ctx.lineTo(this.width - pR, y)
-      }
-
-      const coordinates: Coordinate[] = [];
-
-      for (let i = 0; i < xArray.length; i++) {
-        let offsetX = xArray[i];
-        for (let j = 0, y = yArray.length; j < yArray.length; j++, y--) {
-          let offsetY = yArray[j];
-          coordinates.push({ offsetX, offsetY, x: i + 1, y, isTrapped: false, trappedBy: null });
-        }
-      }
-
-      this.coordinates = coordinates;
-      CoordinateService.coordinates = coordinates;
-
-      ctx.stroke();
+      paintGame(ctx, this.coordinates, this.dots, this.areas);
     },
-    getClosestNodeCoordinates(offsetX: number, offsetY: number): Coordinate | undefined {
-      if (!this.coordinates.length) return;
-
-      const deviation = 15;
-      const candidate = this.coordinates.find((coordinate: Coordinate) => {
-        if (Math.abs(coordinate.offsetY - offsetY) <= deviation && 
-            Math.abs(coordinate.offsetX - offsetX) <= deviation) return coordinate;
-      });
-
-      return candidate;
-    },
-    drawCircle(circle: Circle): void {
-      const { node, context, radius, fill } = circle;
-      context.beginPath();
-      context.arc(node.offsetX, node.offsetY, radius, 0, 2 * Math.PI, false);
-
-      if (fill) {
-        context.fillStyle = fill;
-        context.fill();
-      }
+    bitmapPoint(args: MouseEvent): { x: number; y: number } | undefined {
+      const canvas = args.currentTarget as HTMLCanvasElement | null;
+      if (!canvas || !canvas.clientWidth || !canvas.clientHeight) return;
+      return eventToBitmap(args.offsetX, args.offsetY, canvas.width, canvas.height, canvas.clientWidth, canvas.clientHeight);
     },
     handleMouseMove(args: MouseEvent): void {
-      const { offsetX, offsetY } = args;
-      const clothestNodeCoordinates = this.getClosestNodeCoordinates(offsetX, offsetY);
-      const tempCanvas = (this.$refs['temp-level'] as HTMLCanvasElement);
-
-      if (!tempCanvas) return;
-
-      let ctx = tempCanvas.getContext('2d');
-
-      if (!clothestNodeCoordinates || !tempCanvas || !ctx || !this.activePlayer) return;
-
+      const tempCanvas = this.$refs.tempLevel as HTMLCanvasElement | undefined;
+      const ctx = tempCanvas?.getContext("2d");
+      if (!tempCanvas || !ctx) return;
       ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-      this.drawCircle({
-        context: ctx,
-        radius: 10,
-        fill: this.activePlayer.color.replace('1)', '0.5)'),
-        node: clothestNodeCoordinates
-      });
+      const bitmap = this.bitmapPoint(args);
+      if (!bitmap || !this.activePlayer || this.phase !== "playing") return;
+      const closest = this.getClosestNodeCoordinates(bitmap.x, bitmap.y);
+      if (!closest) return;
+      ctx.beginPath();
+      ctx.arc(closest.offsetX, closest.offsetY, 10, 0, 2 * Math.PI, false);
+      ctx.fillStyle = PLAYER_COLORS[this.activePlayer.order].replace(/,\s*[\d.]+\)$/, ", 0.45)");
+      ctx.fill();
     },
     handleClick(args: MouseEvent): void {
-      if (!this.activePlayer) return;
-
-      const { offsetX, offsetY } = args;      
-      const coordinates = this.getClosestNodeCoordinates(offsetX, offsetY);
-
-      if (!coordinates || coordinates.isTrapped) return;
-
-      const node = NodeStorage.add(coordinates, this.activePlayer);
-
-      if (!node) return;
-
-      this.socketServiceInstance.sendNewNode(node);
-    }
-  }
-})
+      const bitmap = this.bitmapPoint(args);
+      if (!bitmap) return;
+      const closest = this.getClosestNodeCoordinates(bitmap.x, bitmap.y);
+      if (!closest) return;
+      this.socketServiceInstance.sendNewNode(closest.x, closest.y);
+    },
+    endGame(): void {
+      this.socketServiceInstance.sendEndGame();
+    },
+  },
+});
 </script>
 
-<style scoped>
-  .container {
-    display: flex;
-    justify-content: space-between;
-    width: 70%;
-  }
+<style lang="scss">
+@use "./styles/game.scss";
 
-	.gridCanvas {
-		border: lightgrey 1px solid;
-		border-radius: 5px;
-		box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
-	}
-  
-  .score {
-    border: 1px solid rgb(180, 178, 178);
-    border-radius: 5px;
-    width: 300px;
-    height: 150px;
-    padding: 25px 0px 0px 25px;
-    font-size: 24px;
-    font-family: monospace;
-  }
-  
-  .winner-label {
-    padding-top: 2.7rem;
-  }
-  
-  .player:first-child {
-    padding-bottom: 7px;
-    padding-top: 26px;
-  }
+body {
+  margin: 8px;
+  background: #fff;
+  color: #1a1a1a;
+}
 </style>

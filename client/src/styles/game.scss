@@ -1,0 +1,88 @@
+body {
+  margin: 8px;
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+  max-width: 1120px;
+  align-items: flex-start;
+}
+
+.board {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+}
+
+.gridCanvas {
+  display: block;
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  background: #fff;
+  border: lightgrey 1px solid;
+  border-radius: 5px;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+}
+
+.gridCanvas.overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: transparent;
+}
+
+.score {
+  border: 1px solid rgb(180, 178, 178);
+  border-radius: 5px;
+  max-width: 100%;
+  min-width: 220px;
+  padding: 16px;
+  font-size: 24px;
+  font-family: monospace;
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.player.turn {
+  font-weight: bold;
+}
+
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.swatch.red {
+  background: rgba(228, 23, 71, 1);
+}
+
+.swatch.blue {
+  background: rgba(19, 97, 226, 1);
+}
+
+.winner-label,
+.end-note {
+  padding-top: 8px;
+  font-size: 16px;
+}
+
+.end-game {
+  margin-top: 12px;
+  font-family: monospace;
+  font-size: 18px;
+}

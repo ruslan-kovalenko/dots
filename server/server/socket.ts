@@ -1,12 +1,6 @@
-import { Socket, Server } from "socket.io";
-import Chain from "../types/chain";
-import Node from "../types/node";
-import Player from "../types/player";
-import StorageService from "../services/storage.service";
+import { Server, Socket } from "socket.io";
+import Match from "../../rules/src/match";
 import UserService from "../services/user.service";
-import ChainService from "../services/chain.service";
-import ScoreService from "../services/score.service";
-import ScoreUpdate from "../types/score-update";
 
 class SocketServer {
   private static instance: SocketServer | null = null;
@@ -22,70 +16,38 @@ class SocketServer {
   async onConnection(socket: Socket, io: Server): Promise<void> {
     console.log(`user ${socket.id} is connected.`);
 
-    socket.on("send-player-storage", (data: ScoreUpdate) => {
-      this.onSendPlayerStorage(data, io);
+    socket.on("send-new-node", (point: { x: number; y: number }) => {
+      const order = UserService.orderOf(socket.id);
+      if (order && point) Match.place(order, point.x, point.y);
+      io.emit("get-node-storage", Match.snapshot());
     });
 
-    socket.on("send-new-node", (node) => {
-      this.onSendNewNode(node, io);
+    socket.on("send-end-game", () => {
+      const order = UserService.orderOf(socket.id);
+      if (order) Match.requestEnd(order);
+      io.emit("get-node-storage", Match.snapshot());
     });
 
-    socket.on("disconnect", this.onDisconnect);
+    socket.on("disconnect", () => {
+      console.log(`user ${socket.id} left.`);
+    });
 
     const queryUserId = socket.handshake.query.userId;
     const localStorageUserId =
-      typeof queryUserId === "string"
-        ? queryUserId
-        : Array.isArray(queryUserId)
-          ? queryUserId[0]
-          : "";
+      typeof queryUserId === "string" ? queryUserId : Array.isArray(queryUserId) ? queryUserId[0] : "";
 
     const [newUser, users] = UserService.addUser(socket.id, localStorageUserId);
+    if (!newUser) return;
+
+    Match.sync(users);
     socket.emit("register-player", newUser);
     io.emit("users", users);
+    io.emit("get-node-storage", Match.snapshot());
   }
 
-  onSendPlayerStorage(data: ScoreUpdate, io: Server): void {
-    const { storage, score, chains } = data;
-    const playerOrder = storage[0].player.order;
-
-    if (playerOrder === 1) {
-      StorageService.storagePlayerOne = storage;
-      ScoreService.playerOneScore = score;
-      ChainService.chainsPlayerOne = ChainService.combineChainsPO(chains);
-    } else {
-      StorageService.storagePlayerTwo = storage;
-      ScoreService.playerTwoScore = score;
-      ChainService.chainsPlayerTwo = ChainService.combineChainsPT(chains);
-    }
-
-    StorageService.combineStorages();
-
-    io.emit("get-node-storage", {
-      storage: StorageService.nodeStorage,
-      playerOneScore: ScoreService.playerOneScore,
-      playerTwoScore: ScoreService.playerTwoScore,
-      chains: ChainService.getAllChains(),
-    });
-  }
-
-  onSendNewNode(node: Node, io: Server): void {
-    io.emit("get-new-node", node);
-  }
-
-  onDisconnect(): void {
-    console.log(`user left.`);
-    StorageService.storagePlayerOne = [];
-    StorageService.storagePlayerTwo = [];
-    ChainService.chainsPlayerOne = [];
-    ChainService.chainsPlayerTwo = [];
-    ScoreService.playerOneScore = 0;
-    ScoreService.playerTwoScore = 0;
-    StorageService.nodeStorage = [];
-  }
-
-  start(server: any): void {
-    const io = new Server(server, {
+  start(server: unknown): void {
+    Match.reset();
+    const io = new Server(server as never, {
       cors: {
         origin: "*",
         methods: ["GET", "POST"],
