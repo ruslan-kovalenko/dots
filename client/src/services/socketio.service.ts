@@ -17,7 +17,7 @@ class SocketioService {
     return SocketioService.instance;
   }
 
-  setupSocketConnection(onState: (state: GameState) => void): void {
+  setupSocketConnection(onState: (state: GameState) => void, onRefused?: () => void): void {
     if (this.socket) return;
 
     const storageUserId = sessionStorage.getItem("userId");
@@ -39,6 +39,13 @@ class SocketioService {
     this.socket.on("get-node-storage", (state: GameState) => {
       onState(state);
     });
+    this.socket.on("seat-refused", () => {
+      onRefused?.();
+    });
+  }
+
+  chooseOpponent(opponent: "person" | "computer"): void {
+    this.socket?.emit("choose-opponent", { opponent });
   }
 
   disconnect(): void {

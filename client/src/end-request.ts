@@ -1,9 +1,11 @@
 export function endRequestView(
   phase: "waiting" | "playing" | "ended",
   endRequests: (1 | 2)[],
-  localOrder: 1 | 2 | null
+  localOrder: 1 | 2 | null,
+  opponent: "person" | "computer" | null = null
 ): { note: string; canConfirm: boolean } {
   if (phase !== "playing" || localOrder === null) return { note: "", canConfirm: false };
+  if (opponent === "computer") return { note: "", canConfirm: true };
 
   const mine = endRequests.includes(localOrder);
   const other = localOrder === 1 ? 2 : 1;

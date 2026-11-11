@@ -8,6 +8,9 @@ import ScoreService from "./services/score.service";
 
 export type Phase = "waiting" | "playing" | "ended";
 export type Order = 1 | 2;
+export type Opponent = "person" | "computer" | null;
+
+export const COMPUTER_ID = "computer";
 
 export interface Area {
   ownerOrder: Order;
@@ -29,6 +32,7 @@ export interface GameState {
   scores: { 1: number; 2: number };
   endRequests: Order[];
   result: GameResult | null;
+  opponent: Opponent;
 }
 
 class Match {
@@ -39,6 +43,7 @@ class Match {
   static areas: Area[] = [];
   static result: GameResult | null = null;
   static players: Player[] = [];
+  static opponent: Opponent = null;
 
   static reset(): void {
     this.phase = "waiting";
@@ -48,6 +53,7 @@ class Match {
     this.areas = [];
     this.result = null;
     this.players = [];
+    this.opponent = null;
     NodeStorage.storage = [];
     CoordinateService.coordinates = buildIntersections();
     ChainService.drawnSignatures = [];
@@ -58,7 +64,15 @@ class Match {
     if (this.phase === "waiting" && this.players.some((player) => player.order === 1) && this.players.some((player) => player.order === 2)) {
       this.phase = "playing";
       this.activeOrder = 1;
+      const second = this.players.find((player) => player.order === 2);
+      this.opponent = second?.id === COMPUTER_ID ? "computer" : "person";
     }
+  }
+
+  static chooseOpponent(kind: "person" | "computer"): void {
+    if (this.phase !== "waiting") return;
+    if (!this.players.some((player) => player.order === 1) || this.players.some((player) => player.order === 2)) return;
+    this.opponent = kind;
   }
 
   static place(order: Order, x: number, y: number): boolean {
@@ -81,6 +95,12 @@ class Match {
 
   static requestEnd(order: Order): void {
     if (this.phase !== "playing") return;
+    if (this.opponent === "computer") {
+      if (order !== 1) return;
+      if (!this.endRequests.includes(order)) this.endRequests.push(order);
+      this.finish();
+      return;
+    }
     if (!this.endRequests.includes(order)) this.endRequests.push(order);
     if (this.endRequests.includes(1) && this.endRequests.includes(2)) this.finish();
   }
@@ -102,6 +122,7 @@ class Match {
       })),
       scores: { 1: this.scores[1], 2: this.scores[2] },
       endRequests: [...this.endRequests],
+      opponent: this.opponent,
       result: this.result
         ? { scores: { 1: this.result.scores[1], 2: this.result.scores[2] }, winner: this.result.winner }
         : null,

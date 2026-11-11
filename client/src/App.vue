@@ -35,6 +35,26 @@
         <span>Player 2</span>
         <span>{{ scores[2] }}</span>
       </div>
+      <p
+        v-if="choice.note"
+        class="end-note"
+      >
+        {{ choice.note }}
+      </p>
+      <div
+        v-if="choice.choices.length"
+        class="choices"
+      >
+        <button
+          v-for="item in choice.choices"
+          :key="item.id"
+          class="end-game"
+          type="button"
+          @click="chooseOpponent(item.id)"
+        >
+          {{ item.label }}
+        </button>
+      </div>
       <div
         v-if="winnerText"
         class="winner-label"
@@ -65,6 +85,7 @@ import { buildIntersections } from "rules";
 import type { GameState, Player } from "rules";
 import { eventToBitmap, nearestIntersection } from "./board-point";
 import { endRequestView } from "./end-request";
+import { opponentChoiceView } from "./opponent-choice";
 import { paintGame, PLAYER_COLORS } from "./paint-game";
 import { resultLabel } from "./result-label";
 import SocketioService from "./services/socketio.service";
@@ -86,11 +107,15 @@ export default defineComponent({
       areas: [] as GameState["areas"],
       dots: [] as GameState["storage"],
       winnerText: "",
+      opponent: null as GameState["opponent"],
+      seatRefused: false,
     };
   },
   created(): void {
     PlayerService.addPlayerObserver(this.activePlayerHandler);
-    this.socketServiceInstance.setupSocketConnection(this.stateHandler);
+    this.socketServiceInstance.setupSocketConnection(this.stateHandler, () => {
+      this.seatRefused = true;
+    });
   },
   mounted(): void {
     this.drawGrid();
@@ -100,7 +125,10 @@ export default defineComponent({
   },
   computed: {
     endStatus(): { note: string; canConfirm: boolean } {
-      return endRequestView(this.phase, this.endRequests, this.activePlayer?.order ?? null);
+      return endRequestView(this.phase, this.endRequests, this.activePlayer?.order ?? null, this.opponent);
+    },
+    choice(): { choices: { id: "person" | "computer"; label: string }[]; note: string } {
+      return opponentChoiceView(this.phase, this.opponent, this.activePlayer?.order ?? null, this.seatRefused);
     },
   },
   methods: {
@@ -115,6 +143,7 @@ export default defineComponent({
       this.areas = state.areas;
       this.dots = state.storage;
       this.winnerText = resultLabel(state.result);
+      this.opponent = state.opponent;
       this.draw();
     },
     drawGrid(): void {
@@ -153,11 +182,14 @@ export default defineComponent({
       const bitmap = this.bitmapPoint(args);
       if (!bitmap) return;
       const closest = this.getClosestNodeCoordinates(bitmap.x, bitmap.y);
-      if (!closest) return;
+      if (!closest || this.activeOrder !== this.activePlayer?.order) return;
       this.socketServiceInstance.sendNewNode(closest.x, closest.y);
     },
     endGame(): void {
       this.socketServiceInstance.sendEndGame();
+    },
+    chooseOpponent(opponent: "person" | "computer"): void {
+      this.socketServiceInstance.chooseOpponent(opponent);
     },
   },
 });
